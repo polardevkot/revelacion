@@ -1,25 +1,24 @@
 <!--
-  INVITACIÓN ESPACIAL KAWAII — Conteo + Votación + RSVP (Google Sheets)
+  INVITACIÓN ESPACIAL KAWAII — v4
+  - Evento 1 (revelación): ahora 100% virtual, resultado en la página.
+  - RSVP: lista de regalos con Select2 (bloqueo + tachado de lo ya elegido).
+  - Fondo: quitado el blur del glow (evita el "seam" al hacer scroll).
 
-  =========================  CONFIGURACIÓN  =========================
-  1) Sigue el archivo INSTRUCCIONES.md para crear la Hoja de Google y
-     publicar el Google Apps Script como "Aplicación web".
-  2) Pega la URL que te da Google entre las comillas de WEBAPP_URL, abajo
-     en el <script>.  Si la dejas vacía, la página funciona en MODO DEMO
-     (los votos solo cuentan mientras la pestaña está abierta).
-  3) Los enlaces para invitados usan un token único:  ...?t=EL_TOKEN
-     (el script de Google genera esos tokens y los enlaces por ti).
-
-  CAMBIAR FECHA: edita FECHA_EVENTO (meses 0-11).
-  ==================================================================
+  IMPORTANTE: pega tu URL del Web App en WEBAPP_URL (abajo en el <script>).
+  FECHAS: FECHA_REVELACION y FECHA_SHOWER (meses 0-11).
 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>¿Niña o niño?</title>
+<title>Misión P.A. — ¿Niño o niña?</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+
+<!-- Select2 (para el selector de regalos con bloqueo/tachado) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
 
 <style>
   :root{
@@ -29,14 +28,21 @@
     --crema:#FFFFFF; --texto:#3A2A5C; --texto-sv:#6E5C90;
   }
   *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--espacio-1)}
   body{min-height:100vh;font-family:'Nunito',system-ui,sans-serif;color:var(--crema);
     background:linear-gradient(180deg,var(--espacio-1) 0%,var(--espacio-2) 38%,var(--espacio-3) 70%,var(--espacio-4) 100%);
     overflow-x:hidden;position:relative;display:flex;justify-content:center}
 
   .cosmos{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
-  .galaxia-glow{position:absolute;width:90vmax;height:90vmax;top:6%;left:50%;transform:translateX(-50%);
-    background:radial-gradient(circle,rgba(255,170,235,.45) 0%,rgba(150,110,220,.30) 32%,rgba(90,60,160,0) 62%);
-    filter:blur(10px);animation:giraGalaxia 90s linear infinite}
+  /* Glow SIN filtro (el blur en capas fixed grandes causaba la costura al hacer scroll) */
+  .galaxia-glow{
+    position:absolute;width:min(1200px,90vmax);height:min(1200px,90vmax);top:6%;left:50%;transform:translateX(-50%);
+    background:radial-gradient(circle,
+      rgba(255,170,235,.42) 0%, rgba(230,150,235,.32) 18%,
+      rgba(180,120,225,.20) 36%, rgba(130,90,190,.09) 54%,
+      rgba(90,60,160,0) 70%);
+    animation:giraGalaxia 90s linear infinite;
+  }
   @keyframes giraGalaxia{to{transform:translateX(-50%) rotate(360deg)}}
   .estrella-svg{position:absolute;inset:0;width:100%;height:100%}
 
@@ -90,7 +96,16 @@
   h1 .rosa-txt{color:var(--rosa-osc)}h1 .azul-txt{color:var(--azul-osc)}h1 .o{color:var(--texto-sv)}
   .subtitulo{margin-top:12px;color:var(--texto-sv);font-size:.98rem;font-weight:700;line-height:1.45;padding:0 4px}
 
-  .contador{margin-top:24px;display:flex;gap:9px;justify-content:center;flex-wrap:wrap}
+  .evento-tag{margin-top:30px;display:flex;align-items:center;gap:10px}
+  .evento-tag::before,.evento-tag::after{content:"";flex:1;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,#E0D3F5)}
+  .evento-tag::after{background:linear-gradient(90deg,#E0D3F5,transparent)}
+  .evento-tag span{font-family:'Fredoka',sans-serif;font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;
+    color:#fff;padding:7px 16px;border-radius:999px;white-space:nowrap}
+  .tag-revel span{background:linear-gradient(160deg,#9B6BE0,#6E3AA8)}
+  .tag-shower span{background:linear-gradient(160deg,#F5A25A,#E0793A)}
+  .evento-desc{margin-top:8px;font-size:.82rem;color:var(--texto-sv);font-weight:700;line-height:1.4}
+
+  .contador{margin-top:16px;display:flex;gap:9px;justify-content:center;flex-wrap:wrap}
   .unidad{width:64px;padding:12px 4px 8px;border-radius:20px;color:#fff;border:2px solid rgba(255,255,255,.6);box-shadow:0 8px 18px rgba(40,10,70,.25)}
   .unidad:nth-child(1),.unidad:nth-child(3){background:linear-gradient(160deg,var(--rosa),var(--rosa-osc))}
   .unidad:nth-child(2),.unidad:nth-child(4){background:linear-gradient(160deg,var(--azul),var(--azul-osc))}
@@ -98,7 +113,7 @@
   .numero.pop{animation:pop .4s ease}@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.28)}100%{transform:scale(1)}}
   .etiqueta{display:block;margin-top:7px;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;font-weight:800;opacity:.95}
 
-  .bloque{margin-top:26px;background:#F7F1FF;border-radius:22px;padding:18px 16px 20px;text-align:left}
+  .bloque{margin-top:16px;background:#F7F1FF;border-radius:22px;padding:18px 16px 20px;text-align:left}
   .bloque h2{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.12rem;color:var(--texto);text-align:center}
   .bloque .sub{font-size:.8rem;color:var(--texto-sv);font-weight:700;margin-top:2px;text-align:center}
   .botones{display:flex;gap:10px;margin-top:14px}
@@ -119,22 +134,42 @@
   .leyenda .n-nina{color:var(--rosa-osc)}.leyenda .n-nino{color:var(--azul-osc)}
   .total-votos{text-align:center;margin-top:7px;font-size:.74rem;color:var(--texto-sv);font-weight:700}
   .gracias{text-align:center;margin-top:8px;font-family:'Fredoka',sans-serif;font-weight:600;color:#6E3AA8;min-height:1.1em}
+  .ver-invitacion{display:none;margin:10px auto 0;border:none;cursor:pointer;border-radius:999px;padding:10px 18px;color:#fff;
+    font-family:'Fredoka',sans-serif;font-weight:600;font-size:.9rem;background:linear-gradient(160deg,#F5A25A,#E0793A);
+    box-shadow:0 8px 16px rgba(40,10,70,.2);animation:latido 1.6s ease-in-out infinite}
+  @keyframes latido{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+
+  .bloque.brillo{animation:brillo 2.4s ease}
+  @keyframes brillo{0%,100%{box-shadow:none}25%,60%{box-shadow:0 0 0 4px #FFCF5A, 0 8px 28px rgba(255,180,60,.45)}}
 
   #rsvp-form label{display:block;font-size:.78rem;font-weight:800;color:var(--texto-sv);margin-top:12px}
-  #rsvp-form input,#rsvp-form select{width:100%;margin-top:5px;padding:11px 12px;border:2px solid #E7DEF3;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.95rem;color:var(--texto);background:#fff}
-  #rsvp-form input:focus,#rsvp-form select:focus{outline:none;border-color:var(--azul)}
+  #rsvp-form input{width:100%;margin-top:5px;padding:11px 12px;border:2px solid #E7DEF3;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.95rem;color:var(--texto);background:#fff}
+  #rsvp-form input:focus{outline:none;border-color:var(--azul)}
   .btn-enviar{margin-top:15px;width:100%;border:none;cursor:pointer;border-radius:14px;padding:13px;color:#fff;font-family:'Fredoka',sans-serif;font-weight:600;font-size:1rem;background:linear-gradient(160deg,#9B6BE0,#6E3AA8);box-shadow:0 8px 16px rgba(40,10,70,.2)}
   .btn-enviar:hover{transform:translateY(-2px)}
+  .btn-enviar[disabled]{opacity:.6;cursor:default;transform:none}
 
-  .detalles{margin-top:20px;display:flex;flex-direction:column;gap:9px}
+  /* Select2 — estilo acorde a los inputs */
+  .select2-container{width:100%!important;margin-top:5px}
+  .select2-container .select2-selection--single{border:2px solid #E7DEF3!important;border-radius:12px!important;height:44px!important;display:flex;align-items:center;background:#fff}
+  .select2-container .select2-selection--single .select2-selection__rendered{line-height:1.4!important;padding-left:12px!important;color:var(--texto)}
+  .select2-container .select2-selection--single .select2-selection__arrow{height:44px!important}
+  .select2-dropdown{border-radius:12px!important;border:2px solid #E7DEF3!important;overflow:hidden;font-family:'Nunito',sans-serif}
+  .select2-results__option{padding:9px 12px!important}
+  .select2-container--default .select2-results__option--highlighted[aria-selected]{background:var(--azul)!important}
+  .select2-search--dropdown .select2-search__field{border-radius:8px!important;border:1px solid #E7DEF3!important;padding:6px 8px!important}
+  .regalo-tachado{text-decoration:line-through;color:#B7ADCB}
+
+  .detalles{margin-top:12px;display:flex;flex-direction:column;gap:9px}
   .fila{display:flex;align-items:center;gap:12px;text-align:left;background:#F7F1FF;border-radius:15px;padding:11px 15px}
+  .bloque .fila{background:#fff}
   .fila .ico{font-size:1.35rem}.fila .k{font-size:.64rem;letter-spacing:.08em;text-transform:uppercase;color:var(--texto-sv);font-weight:800}
   .fila .v{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1rem;color:var(--texto)}
   .pie{margin-top:18px;font-family:'Fredoka',sans-serif;font-size:.92rem;color:var(--texto-sv)}
-  .aviso{margin-top:14px;font-size:.72rem;color:#EFD9FF;background:rgba(255,255,255,.12);border-radius:12px;padding:8px 12px;line-height:1.4}
+  .aviso{margin-top:14px;font-size:.72rem;color:#6E5C90;background:#F1E8FC;border-radius:12px;padding:8px 12px;line-height:1.4}
 
   @media (prefers-reduced-motion: reduce){
-    .galaxia-glow,.cuerpo,.peng,.numero.pop,.fugaz,.cometa,.cohete,.flota{animation:none!important}
+    .galaxia-glow,.cuerpo,.peng,.numero.pop,.fugaz,.cometa,.cohete,.flota,.ver-invitacion,.bloque.brillo{animation:none!important}
     .fugaz,.cometa,.cohete,.flota{display:none!important}.estrella-svg .tw{animation:none!important}
   }
 </style>
@@ -170,6 +205,10 @@
     <h1><span class="azul-txt">¿Niño</span> <span class="o">o</span> <span class="rosa-txt">niña?</span></h1>
     <p class="subtitulo">¡Ya casi lo sabemos! Guarda esta invitación, aquí se abrirá la gran sorpresa.</p>
 
+    <!-- ================= EVENTO 1: LA REVELACIÓN (VIRTUAL) ================= -->
+    <div class="evento-tag tag-revel"><span>🎉 Evento 1 · La gran revelación</span></div>
+    <p class="evento-desc">Este evento es 100% virtual: la cuenta regresiva es para descubrir si es niño o niña, ¡y el resultado se revelará aquí mismo, en esta página! 🎉</p>
+
     <div class="contador" id="contador" role="timer" aria-live="polite">
       <div class="unidad"><span class="numero" id="dias">00</span><span class="etiqueta">Días</span></div>
       <div class="unidad"><span class="numero" id="horas">00</span><span class="etiqueta">Horas</span></div>
@@ -177,7 +216,13 @@
       <div class="unidad"><span class="numero" id="seg">00</span><span class="etiqueta">Seg</span></div>
     </div>
 
-    <!-- VOTACIÓN -->
+    <div class="detalles">
+      <div class="fila"><span class="ico" aria-hidden="true">📅</span><span><span class="k">Cuándo</span><br><span class="v" id="fecha-revel">—</span></span></div>
+      <div class="fila"><span class="ico" aria-hidden="true">⏰</span><span><span class="k">Hora</span><br><span class="v">4:00 p. m.</span></span></div>
+      <div class="fila"><span class="ico" aria-hidden="true">🌐</span><span><span class="k">Modalidad</span><br><span class="v">Virtual — aquí mismo, en esta página</span></span></div>
+    </div>
+
+    <!-- Votación -->
     <div class="bloque">
       <h2>¿Tú qué crees que será? 🔭</h2>
       <p class="sub">Vota tu apuesta. ¡El resultado real se revela el gran día!</p>
@@ -195,36 +240,36 @@
       </div>
       <p class="total-votos"><span id="total">0</span> apuestas registradas</p>
       <p class="gracias" id="gracias"></p>
+      <button class="ver-invitacion" id="ver-invitacion">⬇️ ¡Y hay más! Te invitamos al baby shower</button>
     </div>
 
-    <!-- RSVP -->
-    <div class="bloque">
-      <h2>🎟️ Tenemos BabyShower tambien!! ¿Te unes?</h2>
-      <p class="sub">Tenemos BabyShower!! Confírmanos si vienes al baby shower el dia 16 de Octubre en <Lugar por confirmar en Tunja></p>
+    <!-- ================= EVENTO 2: EL BABY SHOWER ================= -->
+    <div class="evento-tag tag-shower"><span>🎟️ Evento 2 · El baby shower</span></div>
+    <p class="evento-desc">¡Además tenemos baby shower, un día distinto y presencial! Esta es tu invitación:</p>
+
+    <div class="bloque" id="seccion-shower">
+      <h2>🍼 ¿Te unes a la misión?</h2>
+      <p class="sub">Confírmanos si vienes al baby shower:</p>
+
+      <div class="detalles">
+        <div class="fila"><span class="ico" aria-hidden="true">📅</span><span><span class="k">Cuándo</span><br><span class="v" id="fecha-shower">—</span></span></div>
+        <div class="fila"><span class="ico" aria-hidden="true">⏰</span><span><span class="k">Hora</span><br><span class="v">3:00 p. m.</span></span></div>
+        <div class="fila"><span class="ico" aria-hidden="true">📍</span><span><span class="k">Dónde</span><br><span class="v">Casa de los futuros papás</span></span></div>
+      </div>
+
       <div class="botones">
         <button class="btn-voto btn-si" id="rsvp-si">✅ ¡Sí voy!</button>
         <button class="btn-voto btn-no" id="rsvp-no">😢 No podré</button>
       </div>
       <div id="rsvp-form" style="display:none">
-        <label>¿Cuántos van en total? <input id="rsvp-acomp" type="number" min="1" value="1"></label>
-        <label>¿Qué llevarás?
-          <select id="rsvp-cat">
-            <option value="">Elegir…</option>
-            <option>Bebidas</option><option>Postres</option><option>Comida de sal</option>
-            <option>Decoración</option><option>Sorpresa 🎁</option><option>Nada, solo mi compañía 💜</option>
-          </select>
+        <label>¿Cuántos van en total adicional a ti? <input id="rsvp-acomp" type="number" min="0" value="0"></label>
+        <label>🎁 ¡Tenemos una lista de regalos con diferentes opciones! Elige el tuyo (opcional):
+          <select id="rsvp-regalo" style="width:100%"><option value=""></option></select>
         </label>
-        <input id="rsvp-lleva" placeholder="Detalle (ej: gaseosas, torta de chocolate…)">
         <input id="rsvp-restr" placeholder="¿Alguna restricción alimentaria? (opcional)">
         <button class="btn-enviar" id="rsvp-enviar">Enviar confirmación 🚀</button>
       </div>
       <p class="gracias" id="rsvp-msg"></p>
-    </div>
-
-    <div class="detalles">
-      <div class="fila"><span class="ico" aria-hidden="true">📅</span><span><span class="k">Cuándo</span><br><span class="v" id="fecha-txt">—</span></span></div>
-      <div class="fila"><span class="ico" aria-hidden="true">⏰</span><span><span class="k">Hora</span><br><span class="v">4:00 p. m.</span></span></div>
-      <div class="fila"><span class="ico" aria-hidden="true">📍</span><span><span class="k">Dónde</span><br><span class="v">Casa de los futuros papás</span></span></div>
     </div>
 
     <p class="pie" id="pie">Cuenta atrás para conocerte 🌙</p>
@@ -234,17 +279,18 @@
 
 <script>
   /* ===================  CONFIGURACIÓN  =================== */
-  const WEBAPP_URL = "https://script.google.com/macros/s/AKfycby8MY_8qJofcjhNnXP1oIgKpsN4q4QlPrKjyoFquwSo2vTpXajK_kCoFNY2YZLLWWM/exec";  // <-- Pega aquí la URL del Web App de Google (ver INSTRUCCIONES.md)
-  const FECHA_EVENTO = new Date(2026, 6, 27, 16, 0, 0); // meses 0-11 (6=julio)
+  const WEBAPP_URL = "https://script.google.com/macros/s/AKfycby8MY_8qJofcjhNnXP1oIgKpsN4q4QlPrKjyoFquwSo2vTpXajK_kCoFNY2YZLLWWM/exec";  // <-- VUELVE A PEGAR aquí tu URL del Web App (termina en /exec)
+  const FECHA_REVELACION = new Date(2026, 6, 27, 16, 0, 0);  // meses 0-11
+  const FECHA_SHOWER     = new Date(2026, 9, 16, 15, 0, 0);  // 9 = octubre
   /* ====================================================== */
 
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const params = new URLSearchParams(location.search);
   const token = (params.get('t')||'').trim();
-  const nombreLibre = (params.get('invitado')||'').trim(); // solo para modo demo
+  const nombreLibre = (params.get('invitado')||'').trim();
   const REAL = WEBAPP_URL.trim().length > 0;
 
-  /* ---- Fondo: estrellas + titileo ---- */
+  /* ---- Fondo ---- */
   (function(){const svg=document.getElementById('estrellas');const W=innerWidth,H=innerHeight;let m='';
     for(let i=0;i<110;i++){const x=(Math.random()*W).toFixed(0),y=(Math.random()*H).toFixed(0),
       r=(Math.random()*1.8+.6).toFixed(1),d=(1.1+Math.random()*1.8).toFixed(1);
@@ -261,21 +307,25 @@
       s.style.left=(Math.random()*100)+'vw';s.style.fontSize=(Math.random()*10+12)+'px';
       s.style.animationDuration=(12+Math.random()*12)+'s';s.style.animationDelay=(Math.random()*12)+'s';cos.appendChild(s);}})();
 
-  /* ---- Fecha + contador ---- */
+  /* ---- Fechas legibles ---- */
   const fmt=new Intl.DateTimeFormat('es-ES',{weekday:'long',day:'numeric',month:'long'});
-  let ff=fmt.format(FECHA_EVENTO);document.getElementById('fecha-txt').textContent=ff.charAt(0).toUpperCase()+ff.slice(1);
+  function fechaTxt(d){let f=fmt.format(d);return f.charAt(0).toUpperCase()+f.slice(1);}
+  document.getElementById('fecha-revel').textContent=fechaTxt(FECHA_REVELACION);
+  document.getElementById('fecha-shower').textContent=fechaTxt(FECHA_SHOWER);
+
+  /* ---- Contador ---- */
   const el={},prev={};['dias','horas','min','seg'].forEach(k=>{el[k]=document.getElementById(k);prev[k]=null;});
   const pad=n=>String(n).padStart(2,'0');
   function set(k,v){const s=pad(v);if(el[k].textContent!==s){el[k].textContent=s;
     if(prev[k]!==null){el[k].classList.remove('pop');void el[k].offsetWidth;el[k].classList.add('pop');}prev[k]=s;}}
-  function tick(){let d=Math.floor((FECHA_EVENTO-new Date())/1000);
+  function tick(){let d=Math.floor((FECHA_REVELACION-new Date())/1000);
     if(d<=0){['dias','horas','min','seg'].forEach(k=>el[k].textContent='00');
-      document.querySelector('.subtitulo').textContent='¡Despegamos! El gran momento llegó 🎉';return;}
+      document.querySelector('.subtitulo').textContent='¡Llegó el gran momento! 🎉';return;}
     const dd=Math.floor(d/86400);d%=86400;const hh=Math.floor(d/3600);d%=3600;const mm=Math.floor(d/60),ss=d%60;
     set('dias',dd);set('horas',hh);set('min',mm);set('seg',ss);}
   tick();setInterval(tick,1000);
 
-  /* ---- Puente JSONP hacia Google Apps Script (evita problemas de CORS) ---- */
+  /* ---- Puente JSONP ---- */
   function jsonp(par){return new Promise((resolve,reject)=>{
     const cb='cb_'+Math.random().toString(36).slice(2);par.callback=cb;
     const q=Object.entries(par).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
@@ -294,7 +344,8 @@
     cN=document.getElementById('c-nina'),cM=document.getElementById('c-nino'),
     tot=document.getElementById('total'),gr=document.getElementById('gracias'),
     bN=document.getElementById('voto-nina'),bM=document.getElementById('voto-nino'),
-    aviso=document.getElementById('aviso');
+    aviso=document.getElementById('aviso'),verInv=document.getElementById('ver-invitacion'),
+    secShower=document.getElementById('seccion-shower');
   const rSi=document.getElementById('rsvp-si'),rNo=document.getElementById('rsvp-no'),
     rForm=document.getElementById('rsvp-form'),rEnviar=document.getElementById('rsvp-enviar'),rMsg=document.getElementById('rsvp-msg');
 
@@ -302,11 +353,19 @@
     laN.style.width=a+'%';laM.style.width=b+'%';pN.textContent=a+'%';pM.textContent=b+'%';
     cN.textContent=votos.nina;cM.textContent=votos.nino;tot.textContent=t;}
   function saludo(n){if(n){document.getElementById('saludo').innerHTML='¡Hola, <b>'+n.replace(/[<>]/g,'')+'</b>! 👋';
-    document.getElementById('pie').textContent='¡Gracias por sumarte a la misión, '+n.replace(/[<>]/g,'')+'! 🌙';}}
+    document.getElementById('pie').textContent='¡Con muchas ganas de celebrar esta dulce espera junto a ti, '+n.replace(/[<>]/g,'')+'! 🍼💕';}}
   function marcarVotado(o){bN.disabled=bM.disabled=true;(o==='nina'?bN:bM).classList.add('elegido');
     gr.textContent=o==='nina'?'¡Anotado! Team Niña 💗':'¡Anotado! Team Niño 💙';}
   function bloquearVoto(){bN.disabled=bM.disabled=true;}
   function marcarRSVP(txt){yaRSVP=true;rForm.style.display='none';rSi.disabled=rNo.disabled=true;rMsg.textContent=txt;}
+
+  function irAlShower(){
+    setTimeout(()=>{
+      secShower.scrollIntoView({behavior: reduce?'auto':'smooth', block:'center'});
+      secShower.classList.remove('brillo'); void secShower.offsetWidth; secShower.classList.add('brillo');
+    }, 700);
+  }
+  verInv.addEventListener('click',irAlShower);
 
   async function votar(o){
     if(yaVote)return;
@@ -314,32 +373,82 @@
       if(!token){return;}
       bN.disabled=bM.disabled=true;
       try{const r=await jsonp({action:'vote',token,choice:o});
-        if(r&&r.ok){votos={nina:r.nina,nino:r.nino};yaVote=r.yaVoto;marcarVotado(yaVote);pintar();}
+        if(r&&r.ok){votos={nina:r.nina,nino:r.nino};yaVote=r.yaVoto;marcarVotado(yaVote);pintar();
+          if(!yaRSVP){verInv.style.display='block';irAlShower();}}
         else{bN.disabled=bM.disabled=false;gr.textContent='No se pudo registrar 😕';}
       }catch(e){bN.disabled=bM.disabled=false;gr.textContent='Sin conexión, intenta de nuevo';}
-    }else{votos[o]++;yaVote=o;marcarVotado(o);pintar();}
+    }else{votos[o]++;yaVote=o;marcarVotado(o);pintar();
+      if(!yaRSVP){verInv.style.display='block';irAlShower();}}
   }
   bN.addEventListener('click',()=>votar('nina'));
   bM.addEventListener('click',()=>votar('nino'));
 
+  /* ---- Lista de regalos (Select2, con tachado/bloqueo de lo ya elegido) ---- */
+  let regalosCache = [];
+  async function cargarRegalos(){
+    const $sel = $('#rsvp-regalo');
+    $sel.empty().append('<option value=""></option>');
+    if(REAL){
+      try{
+        const r = await jsonp({action:'gifts'});
+        if(r && r.ok){
+          regalosCache = r.regalos||[];
+          regalosCache.forEach(g=>{
+            const tomado = !!(r.tomados && r.tomados[g]);
+            const opt = new Option(tomado ? (g+' (ya elegido)') : g, g, false, false);
+            if(tomado) opt.disabled = true;
+            $sel.append(opt);
+          });
+        }
+      }catch(e){ /* si falla, queda solo la opción vacía */ }
+    }else{
+      // Modo demo: unos regalos de ejemplo
+      ['Bañera para bebé','Termómetro digital','Set de cepillo y peine','Pañitos húmedos'].forEach((g,i)=>{
+        const tomado = i===0; // ejemplo: el primero ya "tomado"
+        const opt = new Option(tomado ? (g+' (ya elegido)') : g, g, false, false);
+        if(tomado) opt.disabled = true;
+        $sel.append(opt);
+      });
+    }
+    if($sel.data('select2')) $sel.select2('destroy');
+    $sel.select2({
+      width:'100%', placeholder:'Elige un regalo…', allowClear:true,
+      escapeMarkup:function(m){return m;},
+      templateResult:function(state){
+        if(!state.id) return state.text;
+        const $r=$('<span></span>').text(state.text);
+        if(state.disabled) $r.addClass('regalo-tachado');
+        return $r;
+      }
+    });
+  }
+
+  rSi.addEventListener('click',()=>{ if(!yaRSVP){ rForm.style.display='block'; cargarRegalos(); } });
+  rNo.addEventListener('click',()=>enviarRSVP('no'));
+  rEnviar.addEventListener('click',()=>enviarRSVP('si'));
+
   async function enviarRSVP(asiste){
     if(yaRSVP)return;
+    const regalo = asiste==='si' ? ($('#rsvp-regalo').val()||'') : '';
     const datos={action:'rsvp',token,asiste,
-      acomp: asiste==='si'?(document.getElementById('rsvp-acomp').value||'1'):'',
-      lleva: asiste==='si'?document.getElementById('rsvp-lleva').value:'',
-      categoria: asiste==='si'?document.getElementById('rsvp-cat').value:'',
+      acomp: asiste==='si'?(document.getElementById('rsvp-acomp').value||'0'):'',
+      regalo: regalo,
       restr: asiste==='si'?document.getElementById('rsvp-restr').value:''};
-    const okTxt = asiste==='no' ? 'Gracias por avisar 💜 ¡te esperamos en la próxima!' : '¡Confirmado! Nos vemos alla!!!';
+    const okTxt = asiste==='no' ? 'Gracias por avisar 💜 ¡te esperamos en la próxima!' : '¡Confirmado! Nos vemos en el baby shower 🍼';
     if(REAL){
       if(!token){return;}
       rEnviar.disabled=true;
-      try{const r=await jsonp(datos);if(r&&r.ok){marcarRSVP(okTxt);}else{rEnviar.disabled=false;rMsg.textContent='No se pudo enviar 😕';}}
-      catch(e){rEnviar.disabled=false;rMsg.textContent='Sin conexión, intenta de nuevo';}
-    }else{marcarRSVP(okTxt);}
+      try{
+        const r=await jsonp(datos);
+        if(r&&r.ok){ marcarRSVP(okTxt); verInv.style.display='none'; }
+        else if(r&&r.error==='regalo_tomado'){
+          rEnviar.disabled=false;
+          rMsg.textContent='¡Ups! Justo lo acaban de elegir 😅 Por favor escoge otro regalo.';
+          cargarRegalos();
+        } else { rEnviar.disabled=false; rMsg.textContent='No se pudo enviar 😕'; }
+      }catch(e){ rEnviar.disabled=false; rMsg.textContent='Sin conexión, intenta de nuevo'; }
+    }else{ marcarRSVP(okTxt); verInv.style.display='none'; }
   }
-  rSi.addEventListener('click',()=>{if(!yaRSVP)rForm.style.display='block';});
-  rNo.addEventListener('click',()=>enviarRSVP('no'));
-  rEnviar.addEventListener('click',()=>enviarRSVP('si'));
 
   /* ---- Arranque ---- */
   async function init(){
@@ -354,8 +463,9 @@
             aviso.textContent='👋 Para votar y confirmar, abre el enlace personal que te enviamos por WhatsApp.';
           }else{
             nombre=st.nombre||'';saludo(nombre);
-            if(st.yaVoto){yaVote=st.yaVoto;marcarVotado(yaVote);}
-            if(st.yaRSVP){marcarRSVP('¡Ya confirmaste tu asistencia! 🚀');}
+            if(st.yaVoto){yaVote=st.yaVoto;marcarVotado(yaVote);
+              if(!st.yaRSVP){verInv.style.display='block';}}
+            if(st.yaRSVP){marcarRSVP('¡Ya confirmaste tu asistencia! 🍼');}
           }
         }
       }catch(e){
