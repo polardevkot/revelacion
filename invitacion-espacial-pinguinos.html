@@ -259,7 +259,7 @@
       <div class="detalles">
         <div class="fila"><span class="ico" aria-hidden="true">📅</span><span><span class="k">Cuándo</span><br><span class="v" id="fecha-shower">—</span></span></div>
         <div class="fila"><span class="ico" aria-hidden="true">⏰</span><span><span class="k">Hora</span><br><span class="v">3:00 p. m.</span></span></div>
-        <div class="fila"><span class="ico" aria-hidden="true">📍</span><span><span class="k">Dónde</span><br><span class="v">Multifamiliar San Agustin, Cra 7 #23-50, Tunja (Cerca al parque pinzón)</span></span></div>
+        <div class="fila"><span class="ico" aria-hidden="true">📍</span><span><span class="k">Dónde</span><br><span class="v">Casa de los futuros papás</span></span></div>
       </div>
 
       <div class="botones">
@@ -285,8 +285,8 @@
 <script>
   /* ===================  CONFIGURACIÓN  =================== */
   const WEBAPP_URL = "https://script.google.com/macros/s/AKfycby8MY_8qJofcjhNnXP1oIgKpsN4q4QlPrKjyoFquwSo2vTpXajK_kCoFNY2YZLLWWM/exec";
-  const FECHA_REVELACION = new Date(2026, 7, 29, 16, 0, 0);  // meses 0-11
-  const FECHA_SHOWER     = new Date(2026, 8, 16, 15, 0, 0);  // 9 = octubre
+  const FECHA_REVELACION = new Date(2026, 6, 29, 16, 0, 0);  // meses 0-11
+  const FECHA_SHOWER     = new Date(2026, 9, 16, 15, 0, 0);  // 9 = octubre
   /* ====================================================== */
 
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -398,16 +398,20 @@
   bM.addEventListener('click',()=>votar('nino'));
 
   /* ---- Lista de regalos (Select2, con tachado/bloqueo de lo ya elegido) ---- */
+  const OPCION_LIBRE = 'Llevo regalo con otro invitado / otro regalo';
   let regalosCache = [];
   async function cargarRegalos(){
     const $sel = $('#rsvp-regalo');
     $sel.empty().append('<option value=""></option>');
+    // Esta opción va siempre de primera y NUNCA se bloquea: varias personas pueden elegirla.
+    $sel.append(new Option('🤝 ' + OPCION_LIBRE, OPCION_LIBRE, false, false));
     if(REAL){
       try{
         const r = await jsonp({action:'gifts'});
         if(r && r.ok){
           regalosCache = r.regalos||[];
           regalosCache.forEach(g=>{
+            if(g === OPCION_LIBRE) return; // evita duplicar si ya existiera en la hoja
             const tomado = !!(r.tomados && r.tomados[g]);
             const opt = new Option(tomado ? (g+' (ya elegido)') : g, g, false, false);
             if(tomado) opt.disabled = true;
