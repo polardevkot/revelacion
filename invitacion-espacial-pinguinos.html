@@ -287,7 +287,7 @@
     rForm=document.getElementById('rsvp-form'),rEnviar=document.getElementById('rsvp-enviar'),rMsg=document.getElementById('rsvp-msg');
 
   function saludo(n){if(n){document.getElementById('saludo').innerHTML='¡Hola, <b>'+n.replace(/[<>]/g,'')+'</b>! 👋';
-    document.getElementById('pie').textContent='¡Con muchas ganas de celebrar esta dulce espera junto a ti, '+n.replace(/[<>]/g,'')+'! 🍼💕';}}
+    document.getElementById('pie').textContent='¡ '+n.replace(/[<>]/g,'')+'!';}}
   function marcarRSVP(txt){yaRSVP=true;rForm.style.display='none';rSi.disabled=rNo.disabled=true;rMsg.textContent=txt;}
 
   /* ---- Lista de regalos (Select2, con tachado/bloqueo de lo ya elegido) ---- */
